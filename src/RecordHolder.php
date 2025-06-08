@@ -1,0 +1,3 @@
+<?php
+
+namespace Withinboredom\Records;
