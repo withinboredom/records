@@ -2,6 +2,12 @@
 
 This library provides a `Record` base class to build records with.
 
+Install with
+
+```
+composer require withinboredom/records
+```
+
 ## Examples
 
 The below example shows how to create a User class that contains several properties
