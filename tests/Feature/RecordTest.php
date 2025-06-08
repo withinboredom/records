@@ -1,6 +1,6 @@
 <?php
 
-use Withinboredom\Records\Record;
+use Withinboredom\Record;
 
 readonly class MoneyTesting extends Record {
 	public int $pennies;
@@ -104,25 +104,16 @@ readonly class UserTest extends Record {
 	public int $id;
 	public string $email;
 
-	protected static function create(...$args): static
-	{
-		return new self()->with(...$args);
-	}
-
-	protected static function deriveIdentity(...$args): array
-	{
-		return $args;
-	}
-
 	public static function from(string $name, int $id, string $email): static {
 		return self::fromArgs(name: $name, id: $id, email: $email);
 	}
 }
 
 it('can use with() on a record', function() {
-	$user = UserTest::from('bob', 1, '<EMAIL>');
+	$user = UserTest::from('bob', 23, '<EMAIL>');
 	$other = $user->with(email: "other-email");
 	expect($user)->not->toBe($other);
+	expect($user->id)->toBe(23);
 	expect($user->email)->toBe('<EMAIL>');
 	expect($other->email)->toBe('other-email');
 });

@@ -1,21 +1,29 @@
 <?php
 
-namespace Withinboredom\Records;
+namespace Withinboredom;
 
 use WeakMap;
 use WeakReference;
 
 abstract readonly class Record
 {
+	/**
+	 * @var object|int|string|array The record's identifier
+	 */
 	private object|int|string|array $id;
-	private bool $isArray;
 
 	/**
 	 * All records must have a private constructor and should never be created except through factories
 	 */
 	final protected function __construct() {}
 
-	protected static function fromArgs(mixed ...$args): static
+	/**
+	 * Create a new or interned record from the given arguments
+	 *
+	 * @param mixed ...$args The arguments to create the type
+	 * @return static The record
+	 */
+	final protected static function fromArgs(mixed ...$args): static
 	{
 		$id = static::deriveIdentity(...$args);
 
@@ -24,17 +32,33 @@ abstract readonly class Record
 		});
 	}
 
-	abstract protected static function deriveIdentity(mixed ...$args): object|int|string|array;
+	/**
+	 * Given the arguments, deriveIdentity MUST return a stable identity.
+	 *
+	 * @param mixed ...$args The arguments used to derive the identity
+	 * @return object|int|string|array An identity
+	 */
+	protected static function deriveIdentity(mixed ...$args): object|int|string|array
+	{
+		return $args;
+	}
 
-	protected static function fromClosure(object|string|int|array $id, \Closure $create): static
+	/**
+	 * Creates a record with the given ID and calls the $create closure if it is not yet interned.
+	 *
+	 * @param object|string|int|array $id The identity of the record.
+	 * @param \Closure $create Called to create the record if it does not exist.
+	 * @return static The record.
+	 */
+	final protected static function fromClosure(object|string|int|array $id, \Closure $create): static
 	{
 		$records = &static::getRecords();
 		$type = static::class;
 		$record = null;
 
-		$isArray = is_array($id);
+		$originalId = $id;
 		if (is_array($id)) {
-			$id = self::getArrayId($id);
+			$id = self::getArrayId($type, $id);
 		}
 
 		if (is_object($id)) {
@@ -49,92 +73,124 @@ abstract readonly class Record
 		$reference = $records[$type][$id] ??= WeakReference::create(($record = $create()));
 		$record ??= $reference->get();
 		if (!isset($record->id)) {
-			$record->id = $id;
-			$record->isArray = $isArray;
+			$record->id = $originalId;
 		}
 		return $record;
 	}
 
+	/**
+	 * Gets the interned records for this runtime.
+	 *
+	 * @return array<string, WeakMap|array>
+	 */
 	private static function &getRecords(): array
 	{
 		static $records = [];
 		return $records;
 	}
 
-	private static function getArrayId(array|int $id, bool $delete = false): int
+	/**
+	 * Determines an identity for a record keyed by an array.
+	 *
+	 * @param array|int $id The identity.
+	 * @param bool $delete Whether to delete the given identity.
+	 * @return int The stable identifier.
+	 */
+	private static function getArrayId(string $type, array|int $id, bool $delete = false): int
 	{
 		static $ids = [];
 		static $freelist = [];
+
+		$freelist[$type] ??= [];
+		$ids[$type] ??= [];
+
 		if (is_int($id)) {
 			if ($delete) {
-				$freelist[] = $id;
+				$freelist[$type][] = $id;
 			}
 			return $id;
 		}
 		$match = null;
-		foreach ($ids as $i => $arr) {
+		foreach ($ids[$type] as $i => $arr) {
+			if (in_array($i, $freelist[$type], true)) {
+				continue;
+			}
 			if ($arr === $id) {
 				$match = $i;
 				if ($delete) {
-					$freelist[] = $i;
+					$freelist[$type][] = $i;
 				}
 				break;
 			}
 		}
 		if ($match === null) {
-			$nextId = array_pop($freelist);
+			$nextId = array_pop($freelist[$type]);
 			if ($nextId === null) {
-				$nextId = count($ids);
-				$ids[] = $id;
+				$nextId = count($ids[$type]);
+				$ids[$type][] = $id;
 			} else {
-				$ids[$nextId] = $id;
+				$ids[$type][$nextId] = $id;
 			}
 			return $nextId;
 		}
 		return $match;
 	}
 
-	abstract protected static function create(mixed ...$args): static;
+	/**
+	 * Creates a new record with the given arguments.
+	 *
+	 * @param mixed ...$args
+	 * @return static
+	 */
+	protected static function create(mixed ...$args): static
+	{
+		return new static()->with(...$args);
+	}
 
 	public function with(mixed ...$args): static
 	{
-		$id = static::deriveIdentity(...$args);
-		$record = self::fromClosure($id, function () use ($args, $id) {
+		if (($this->id ?? false) && is_array($this->id)) {
+			$id = static::deriveIdentity(...array_replace($this->id, $args));
+
+			if (count($id) !== count($this->id)) {
+				throw new \LogicException("unknown property: " . array_key_last($args));
+			}
+		} else {
+			$id = static::deriveIdentity(...$args);
+		}
+
+		// based on crell\Evolvable
+		return self::fromClosure($id, function () use ($args, $id) {
 			$r = new \ReflectionClass(static::class);
 			$clone = $r->newInstanceWithoutConstructor();
-			if($isArray = is_array($id)) {
-				$id = self::getArrayId($id);
-			}
 
 			$clone->id = $id;
-			$clone->isArray = $isArray;
 
-			foreach ($r->getProperties() as $rprop) {
-				$field = $rprop->getName();
+			foreach ($r->getProperties() as $property) {
+				$field = $property->getName();
 				if (array_key_exists($field, $args)) {
-					$rprop->setValue($clone, $args[$field]);
-				} elseif ($rprop->isInitialized($this)) {
-					$rprop->setValue($clone, $rprop->getValue($this));
+					$property->setValue($clone, $args[$field]);
+				} elseif ($property->isInitialized($this)) {
+					$property->setValue($clone, $property->getValue($this));
 				}
 			}
 			return $clone;
 		});
-
-		return $record;
 	}
 
 	/*
 	 * called once all records are collected for this instance
 	 */
-
 	public function __destruct()
 	{
 		$records = &static::getRecords();
 		$type = static::class;
 		if (isset($this->id)) {
-			unset($records[$type][$this->id]);
-			if($this->isArray) {
-				self::getArrayId($this->id, true);
+			if (is_array($this->id)) {
+				$id = self::getArrayId($type, $this->id, true);
+				unset($records[$type][$id]);
+			} else {
+				unset($records[$type][$this->id]);
 			}
 		}
 		if (empty($records[$type])) {
