@@ -1,6 +1,8 @@
 <?php
 
 use Withinboredom\Record;
+use Withinboredom\Record\Attributes\ConstrainWith;
+use Withinboredom\Record\Attributes\Immutable;
 
 readonly class MoneyTesting extends Record {
 	public int $pennies;
@@ -42,6 +44,7 @@ readonly class MoneyTesting2 extends Record {
 }
 
 readonly class CurrencyTesting1 extends Record {
+	#[Immutable]
 	public MoneyTesting $money;
 	public string $code;
 
@@ -101,7 +104,11 @@ it('does not allow unserialization', function() {
 
 readonly class UserTest extends Record {
 	public string $name;
+
+	#[ConstrainWith(changeTogether: 'email')]
+	#[ConstrainWith(changeTogether: 'name')]
 	public int $id;
+
 	public string $email;
 
 	public static function from(string $name, int $id, string $email): static {
@@ -116,4 +123,20 @@ it('can use with() on a record', function() {
 	expect($user->id)->toBe(23);
 	expect($user->email)->toBe('<EMAIL>');
 	expect($other->email)->toBe('other-email');
+});
+
+it('properly constrains with', function() {
+	$user = UserTest::from('bob', 23, '<EMAIL>');
+	expect(fn() => $user->with(id: 24))->toThrow(LogicException::class);
+	$other = $user->with(id: 24, email: 'wee', name: 'bob');
+	expect($other->id)
+		->toBe(24)
+		->and($other->email)->toBe('wee')
+		->and($other)->not->toBe($user);
+});
+
+it('properly keeps immutable', function() {
+	$money = MoneyTesting::from(10);
+	$currency = CurrencyTesting1::from($money, 'USD');
+	expect(fn() => $currency->with(money: $money->with(pennies: 20)))->toThrow(LogicException::class);
 });

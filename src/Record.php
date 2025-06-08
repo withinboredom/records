@@ -4,6 +4,9 @@ namespace Withinboredom;
 
 use WeakMap;
 use WeakReference;
+use Withinboredom\Record\Attributes\ConstrainWith;
+use Withinboredom\Record\Attributes\Immutable;
+use Withinboredom\Record\Attributes\RecordAttribute;
 
 abstract readonly class Record
 {
@@ -147,7 +150,7 @@ abstract readonly class Record
 		return new static()->with(...$args);
 	}
 
-	public function with(mixed ...$args): static
+	final public function with(mixed ...$args): static
 	{
 		if (($this->id ?? false) && is_array($this->id)) {
 			$id = static::deriveIdentity(...array_replace($this->id, $args));
@@ -165,22 +168,43 @@ abstract readonly class Record
 			$clone = $r->newInstanceWithoutConstructor();
 
 			$clone->id = $id;
+			$changes = [];
+			$checks = [];
 
 			foreach ($r->getProperties() as $property) {
+				$attributes = $property->getAttributes(RecordAttribute::class, \ReflectionAttribute::IS_INSTANCEOF);
 				$field = $property->getName();
 				if (array_key_exists($field, $args)) {
+					// value is changing
+					foreach($attributes as $attribute) {
+						$a = $attribute->newInstance();
+						if($a instanceof Immutable) {
+							throw new \LogicException("cannot change immutable property: " . $field);
+						}
+						if(($a instanceof ConstrainWith) && !in_array($a->changeTogether, $changes, true)) {
+							$checks[] = $a->changeTogether;
+						}
+					}
+
+					$changes[] = $field;
+
 					$property->setValue($clone, $args[$field]);
 				} elseif ($property->isInitialized($this)) {
+					// value is not changed
 					$property->setValue($clone, $property->getValue($this));
 				}
 			}
+
+			foreach($checks as $field) {
+				if(!in_array($field, $changes, true)) {
+					throw new \LogicException("cannot change property: " . $field . " without changing " . implode(", ", $changes));
+				}
+			}
+
 			return $clone;
 		});
 	}
 
-	/*
-	 * called once all records are collected for this instance
-	 */
 	public function __destruct()
 	{
 		$records = &static::getRecords();
