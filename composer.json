@@ -1,24 +1,25 @@
 {
-    "name": "withinboredom/records",
-    "type": "library",
-    "license": "MIT",
-    "autoload": {
-        "psr-4": {
-            "Withinboredom\\": "src/"
-        }
-    },
     "authors": [
         {
             "name": "Robert Landers",
             "email": "landers.robert@gmail.com"
         }
     ],
-    "require-dev": {
-        "pestphp/pest": "^3.8"
+    "autoload": {
+        "psr-4": {
+            "Withinboredom\\": "src/"
+        }
     },
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }
-    }
+    },
+    "description": "Records in PHP",
+    "license": "MIT",
+    "name": "withinboredom/records",
+    "require-dev": {
+        "pestphp/pest": "^3.8"
+    },
+    "type": "library"
 }

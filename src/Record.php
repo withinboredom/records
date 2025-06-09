@@ -11,9 +11,9 @@ use Withinboredom\Record\Attributes\RecordAttribute;
 abstract readonly class Record
 {
 	/**
-	 * @var object|int|string|array The record's identifier
+	 * @var object|int|string|array|float The record's identifier
 	 */
-	private object|int|string|array $id;
+	private object|int|string|array|float $id;
 
 	/**
 	 * All records must have a private constructor and should never be created except through factories
@@ -39,9 +39,9 @@ abstract readonly class Record
 	 * Given the arguments, deriveIdentity MUST return a stable identity.
 	 *
 	 * @param mixed ...$args The arguments used to derive the identity
-	 * @return object|int|string|array An identity
+	 * @return object|int|string|array|float An identity
 	 */
-	protected static function deriveIdentity(mixed ...$args): object|int|string|array
+	protected static function deriveIdentity(mixed ...$args): object|int|string|array|float
 	{
 		return $args;
 	}
@@ -49,11 +49,11 @@ abstract readonly class Record
 	/**
 	 * Creates a record with the given ID and calls the $create closure if it is not yet interned.
 	 *
-	 * @param object|string|int|array $id The identity of the record.
+	 * @param object|string|int|array|float $id The identity of the record.
 	 * @param \Closure $create Called to create the record if it does not exist.
 	 * @return static The record.
 	 */
-	final protected static function fromClosure(object|string|int|array $id, \Closure $create): static
+	final protected static function fromClosure(object|string|int|array|float $id, \Closure $create): static
 	{
 		$records = &static::getRecords();
 		$type = static::class;
