@@ -115,8 +115,10 @@ abstract readonly class Record
 			if ($key !== false) {
 				unset($ids[$type][$key]);
 				$freelist[$type][] = $key;
+				return $key;
 			}
-			return $key;
+
+			throw new \LogicException("attempted to delete non-existent record");
 		}
 
 		if($key === false) {
