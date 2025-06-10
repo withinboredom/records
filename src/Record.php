@@ -119,7 +119,7 @@ abstract readonly class Record
 		}
 
 		if ($key === false) {
-			$key = count($ids[$type]);
+			$key = count($ids[$type] ?? []);
 			$ids[$type][$key] = $id;
 		}
 
