@@ -102,41 +102,28 @@ abstract readonly class Record
 	private static function getArrayId(string $type, array|int $id, bool $delete = false): int
 	{
 		static $ids = [];
-		static $freelist = [];
 
-		$freelist[$type] ??= [];
-		$ids[$type] ??= [];
+		if(is_int($id)) {
+			$key = $id;
+		} else {
+			$key = array_search($id, $ids[$type] ?? [], true);
+		}
 
-		if (is_int($id)) {
-			if ($delete) {
-				$freelist[$type][] = $id;
+		if($delete) {
+			if($key !== false) {
+				unset($ids[$type][$key]);
 			}
-			return $id;
+			// if $key is false, we deliberately fail here, when returning false,
+			// this shouldn't happen, and it would be unrecoverable anyway.
+			return $key;
 		}
-		$match = null;
-		foreach ($ids[$type] as $i => $arr) {
-			if (in_array($i, $freelist[$type], true)) {
-				continue;
-			}
-			if ($arr === $id) {
-				$match = $i;
-				if ($delete) {
-					$freelist[$type][] = $i;
-				}
-				break;
-			}
+
+		if ($key === false) {
+			$key = count($ids[$type]);
+			$ids[$type][$key] = $id;
 		}
-		if ($match === null) {
-			$nextId = array_pop($freelist[$type]);
-			if ($nextId === null) {
-				$nextId = count($ids[$type]);
-				$ids[$type][] = $id;
-			} else {
-				$ids[$type][$nextId] = $id;
-			}
-			return $nextId;
-		}
-		return $match;
+
+		return $key;
 	}
 
 	/**
