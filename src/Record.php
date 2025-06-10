@@ -103,40 +103,33 @@ abstract readonly class Record
 	{
 		static $ids = [];
 		static $freelist = [];
-
-		$freelist[$type] ??= [];
-		$ids[$type] ??= [];
+		static $nextId = [];
 
 		if (is_int($id)) {
-			if ($delete) {
-				$freelist[$type][] = $id;
-			}
-			return $id;
+			$key = $id;
+		} else {
+			$key = array_search($id, $ids[$type] ?? [], true);
 		}
-		$match = null;
-		foreach ($ids[$type] as $i => $arr) {
-			if (in_array($i, $freelist[$type], true)) {
-				continue;
+
+		if ($delete) {
+			if ($key !== false) {
+				unset($ids[$type][$key]);
+				$freelist[$type][] = $key;
+				return $key;
 			}
-			if ($arr === $id) {
-				$match = $i;
-				if ($delete) {
-					$freelist[$type][] = $i;
-				}
-				break;
-			}
+
+			throw new \LogicException("attempted to delete non-existent record");
 		}
-		if ($match === null) {
-			$nextId = array_pop($freelist[$type]);
-			if ($nextId === null) {
-				$nextId = count($ids[$type]);
-				$ids[$type][] = $id;
+
+		if($key === false) {
+			if (!empty($freelist[$type])) {
+				$key = array_pop($freelist[$type]);
 			} else {
-				$ids[$type][$nextId] = $id;
+				$key = $nextId[$type] = ($nextId[$type] ?? 0) + 1;
 			}
-			return $nextId;
+			$ids[$type][$key] = $id;
 		}
-		return $match;
+		return $key;
 	}
 
 	/**
