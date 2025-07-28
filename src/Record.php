@@ -73,8 +73,13 @@ abstract readonly class Record
 			$records[$type] ??= [];
 		}
 
+		retry:
 		$reference = $records[$type][$id] ??= WeakReference::create(($record = $create()));
 		$record ??= $reference->get();
+		if ($record === null) {
+			unset($records[$type][$id]);
+			goto retry;
+		}
 		if (!isset($record->id)) {
 			$record->id = $originalId;
 		}
