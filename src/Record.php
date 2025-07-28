@@ -229,4 +229,9 @@ abstract readonly class Record
 	{
 		throw new \LogicException('do not unserialize records');
 	}
+
+	final protected function getIdentity(): object|int|string|array|float
+	{
+		return $this->id;
+	}
 }
